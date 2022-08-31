@@ -1,7 +1,7 @@
 TARGET = program
 LIBS = -lm
 CC = gcc
-CFLAGS = -g -Wall
+CFLAGS = -g -Wpedantic -std=c18
 
 .PHONY: default all clean
 
@@ -22,5 +22,6 @@ $(TARGET): $(OBJECTS)
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)
+	-rm -f out.tsv
 run:
 	./program
