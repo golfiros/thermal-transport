@@ -137,14 +137,14 @@ double total_current(){
 //procedure to find chemical potential of the
 //bath conductor by root finding with secant
 double find_bias(double voltage) {
-  P_BIAS[0] = P_MU[0] + voltage / 2;
-  P_BIAS[1] = P_MU[1] - voltage / 2;
+  P_BIAS[0] = P_MU[0] + 0.5 * voltage;
+  P_BIAS[1] = P_MU[1] - 0.5 * voltage;
   double x0, x1, x2; //guesses
   double f0, f1; //evaluations
-  x0 = 0;
+  x0 = - 0.5 * fabs(voltage) + P_T[2];
   P_BIAS[2] = P_MU[2] + x0;
   f0 = excess_current();
-  x1 = (f0 < 0) ? 10 * TOL : - 10 * TOL; //if current flowing in, raise voltage
+  x1 = - x0;
   P_BIAS[2] = P_MU[2] + x1;
   f1 = excess_current();
   while(fabs(x1-x0) > TOL){
@@ -167,12 +167,12 @@ int main(int argc, char** argv){
   
   double t[3] = {1.0,1.0,1.0}; 
   double mu[3] = {0.0,0.0,0.0};
-  double v[3] = {0.2,0.2,0.2};
+  double v[3] = {1.0,1.0,0.1};
   double delta = 0.6;
   double temp = 1.0;
   setup(t, mu, v, delta, temp);
 
-  int steps = 50;
+  int steps = 100;
   
   FILE *ptr = fopen("out.tsv","w");
   for(int i=0;i<steps;i++){
@@ -183,6 +183,7 @@ int main(int argc, char** argv){
     P_BIAS[2] = P_MU[2] + bias;
     double curr = total_current();
     fprintf(ptr,"%f\t%f\t%f\n",voltage,bias,curr);
+    printf("%f\t%f\t%f\n",voltage,bias,curr);
   }
   fclose(ptr);
 
