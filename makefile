@@ -1,7 +1,7 @@
 TARGET = program
 LIBS = -lm
 CC = gcc
-CFLAGS = -g -Wpedantic -std=c18
+CFLAGS = -g -Wpedantic
 
 .PHONY: default all clean
 
