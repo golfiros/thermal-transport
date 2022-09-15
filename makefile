@@ -22,6 +22,8 @@ $(TARGET): $(OBJECTS)
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)
-	-rm -f out.tsv
+	-rm -f script.py
+	-rm -f *.png
 run:
 	./program
+	python script.py

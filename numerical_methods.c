@@ -64,12 +64,51 @@ struct plot_s {
   double y[MAX_REC];
 };
 
-plot_t create_plot(double a, double b){
-  struct plot_s *ptr = malloc(sizeof(struct plot_s));
-  ptr->n_points = N_INITIAL;
-  for(int i=0;i<N_INITIAL;i++){
-    ptr->x[i] = a + (double)i * (b - a) / ((double)N_INITIAL - 1); 
+FILE *fptr;
+
+void pyplot_import(const char* filename){
+  fptr = fopen(filename,"w");
+  fprintf(fptr,"import matplotlib.pyplot as plt\n");
+}
+
+void pyplot_close(){
+  fclose(fptr);
+}
+
+void pyplot_figure(int figure){
+  fprintf(fptr,"plt.figure(%d)\n",figure);
+}
+
+void pyplot_savefig(const char* filename){
+  fprintf(fptr,"plt.savefig(\"%s\")\n",filename);
+}
+
+void pyplot_plot(plot_t plot, const char* color,const char* label){
+  fprintf(fptr,"plt.plot([");
+  for(int i=0;i<plot->n_points;i++){
+    fprintf(fptr,"%e,",plot->x[i]);
   }
+  fprintf(fptr,"],[");
+  for(int i=0;i<plot->n_points;i++){
+    fprintf(fptr,"%e,",plot->y[i]);
+  }
+  fprintf(fptr,"],c=\"%s\",label=\"%s\")\n",color,label);
+}
+
+void pyplot_xlabel(const char* label){
+  fprintf(fptr,"plt.xlabel(\"%s\")\n",label);
+}
+
+void pyplot_ylabel(const char* label){
+  fprintf(fptr,"plt.ylabel(\"%s\")\n",label);
+}
+
+void pyplot_legend(const char* title){
+  fprintf(fptr,"plt.legend(title=\"%s\")\n",title);
+}
+
+plot_t create_plot(){
+  struct plot_s *ptr = malloc(sizeof(struct plot_s));
   return ptr;
 }
 
@@ -77,8 +116,10 @@ void delete_plot(plot_t plot){
   free(plot);
 }
 
-void sample_plot(plot_t plot, double (*func)(double)){
+void sample_plot(plot_t plot, double a, double b, double (*func)(double)){
+  plot->n_points = N_INITIAL;
   for(int i=0;i<N_INITIAL;i++){
+    plot->x[i] = a + (double)i * (b - a) / ((double)N_INITIAL - 1); 
     plot->y[i] = (*func)(plot->x[i]);
   }
   for(int i=0;i<plot->n_points-2 && plot->n_points < MAX_REC;i++){
@@ -118,9 +159,9 @@ double* get_plot_x(plot_t plot){
   return plot->x;
 }
 
-void set_plot_x(plot_t plot, const double *x, const int n_points){
+void set_plot_x(plot_t plot, const double *x, int n_points){
   plot->n_points = n_points;
-  memcpy(plot->x, x, n_points);
+  memcpy(plot->x, x, n_points * sizeof(double));
 }
 double* get_plot_y(plot_t plot){
   return plot->y;
@@ -130,10 +171,5 @@ void set_plot_y(plot_t plot, const double *y){
   memcpy(plot->y, y, plot->n_points);
 }
 
-void render_plot(plot_t plot, const char* color){
-  for(int i=0;i<plot->n_points;i++){
-    printf("%.10e\t%.10e\n",plot->x[i],plot->y[i]);
-  }
-  printf("%d\n",plot->n_points);
-}
+
 

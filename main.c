@@ -103,6 +103,7 @@ double total_current(){
 //procedure to find chemical potential of the
 //bath conductor by root finding with secant
 double find_bias(double voltage) {
+  if(P_V[2] == 0){ return 0; }
   P_BIAS[0] = P_MU[0] + 0.5 * voltage;
   P_BIAS[1] = P_MU[1] - 0.5 * voltage;
   return find_root(P_BIAS[0], P_BIAS[1], excess_current);
@@ -116,30 +117,95 @@ int main(int argc, char** argv){
   
   double t[3] = {1.0,1.0,1.0}; 
   double mu[3] = {0.0,0.0,0.0};
-  double v[3] = {1.0,1.0,0.2};
+  double v[3] = {1.0,1.0,0.0};
   double delta = 0.6;
-  double temp = 0.025;
+  double temp = 0.01;
+  printf("setting up\n");
   setup(t, mu, v, delta, temp);
- 
-  /*
-  int steps = 100;
 
-  FILE *ptr = fopen("out.tsv","w");
-  for(int i=0;i<steps;i++){
-    reset_error_numerics();
-    double voltage = 4.0 * ((double)i + 0.5) / steps;
-    double bias = find_bias(voltage);
-    double curr = total_current();
-    //fprintf(ptr,"%f\t%f\t%f\n",voltage,bias,curr);
-    printf("%f\t%f\t%f\t%o\n",voltage,bias,curr,get_error_numerics());
+  pyplot_import("script.py");
+  pyplot_figure(1);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$\\mu$");
+  pyplot_figure(2);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$I$");
+  pyplot_figure(3);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$\\mu$");
+  pyplot_figure(4);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$I$");
+  
+  plot_t plot_mu = create_plot();
+  plot_t plot_rest = create_plot();
+  const char* colors[5] = {"blue", "red", "green", "yellow", "purple"};
+  char label[100];
+
+  printf("doing various v\n");
+  double v_cases[5] = {0.0, 0.1, 0.5, 1.0, 5.0};
+  for(int i=0;i<5;i++){
+    v[2] = v_cases[i];
+    setup(t, mu, v, delta, temp);
+    pyplot_figure(1);
+    sample_plot(plot_mu, 0, 2, find_bias);
+    sprintf(label,"%.1f",v_cases[i]);
+    pyplot_plot(plot_mu,colors[i],label);
+    pyplot_figure(2);
+    int np = get_plot_points(plot_mu);
+    double *x = get_plot_x(plot_mu);
+    double *bias = get_plot_y(plot_mu);
+    double *y = get_plot_y(plot_rest);
+    set_plot_x(plot_rest, x, np);
+    for(int j=0;j<np;j++){
+      P_BIAS[0] = P_MU[0] + 0.5 * x[j];
+      P_BIAS[1] = P_MU[1] - 0.5 * x[j];
+      P_BIAS[2] = bias[j];
+      y[j] = total_current();
+    }
+    pyplot_plot(plot_rest,colors[i],label);
   }
-  fclose(ptr);
-  */
-
-  plot_t plot = create_plot(0, 4);
-  sample_plot(plot, find_bias);
-  render_plot(plot, "");
-  delete_plot(plot);
+  
+  printf("doing various T\n");
+  v[2] = 0.1;
+  double temp_cases[5] = {0.001, 0.01, 0.1, 1.0, 10.0};
+  for(int i=0;i<5;i++){
+    temp = temp_cases[i];
+    setup(t, mu, v, delta, temp);
+    pyplot_figure(3);
+    sample_plot(plot_mu, 0, 2, find_bias);
+    sprintf(label,"%.1f",temp_cases[i]);
+    pyplot_plot(plot_mu,colors[i],label);
+    pyplot_figure(4);
+    int np = get_plot_points(plot_mu);
+    double *x = get_plot_x(plot_mu);
+    double *bias = get_plot_y(plot_mu);
+    double *y = get_plot_y(plot_rest);
+    set_plot_x(plot_rest, x, np);
+    for(int j=0;j<np;j++){
+      P_BIAS[0] = P_MU[0] + 0.5 * x[j];
+      P_BIAS[1] = P_MU[1] - 0.5 * x[j];
+      P_BIAS[2] = bias[j];
+      y[j] = total_current();
+    }
+    pyplot_plot(plot_rest,colors[i],label);
+  }
+  pyplot_figure(1);
+  pyplot_legend("$v_3$");
+  pyplot_savefig("mu_versus_voltage_varying_v.png");
+  pyplot_figure(2);
+  pyplot_legend("$v_3$");
+  pyplot_savefig("curr_versus_voltave_varying_v.png");
+  
+  pyplot_figure(3);
+  pyplot_legend("$T$");
+  pyplot_savefig("mu_versus_voltage_varying_T.png");
+  pyplot_figure(4);
+  pyplot_legend("$T$");
+  pyplot_savefig("curr_versus_voltave_varying_T.png");
+  delete_plot(plot_mu);
+  delete_plot(plot_rest);
+  pyplot_close();
 
   return 0;
 }
