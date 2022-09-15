@@ -80,7 +80,7 @@ void pyplot_figure(int figure){
 }
 
 void pyplot_savefig(const char* filename){
-  fprintf(fptr,"plt.savefig(\"%s\")\n",filename);
+  fprintf(fptr,"plt.savefig(\"%s\",dpi=150)\n",filename);
 }
 
 void pyplot_plot(plot_t plot, const char* color,const char* label){
@@ -135,7 +135,6 @@ void sample_plot(plot_t plot, double a, double b, double (*func)(double)){
     double area = fabs(x[0] * (y[1] - y[2]) + 
                        x[1] * (y[2] - y[0]) +
                        x[2] * (y[0] - y[1]));
-    //printf("%.10e\t%.10e\t%.10e\t%.10e\t%.10e\n",x[0],x[1],x[2],area,dx*dy);
     if(area > 0.5 * dx * dy){
       memmove(x + 2, x, (plot->n_points - i) * sizeof(double));
       memmove(y + 2, y, (plot->n_points - i) * sizeof(double));

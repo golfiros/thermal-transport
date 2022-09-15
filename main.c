@@ -67,16 +67,41 @@ double fermi_dirac(double E){
 //bath so we can integrate it to zero
 double excess_density(double E){
   find_trans(E);
-  return ( P_TRANS_PROB[1] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2]))
-         + P_TRANS_PROB[2] * (fermi_dirac(E - P_BIAS[1]) - fermi_dirac(E - P_BIAS[2]))) / M_1_PI * 0.5;
+  return M_1_PI * 0.5 * 
+        ( P_TRANS_PROB[1] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2]))
+        + P_TRANS_PROB[2] * (fermi_dirac(E - P_BIAS[1]) - fermi_dirac(E - P_BIAS[2])));
 }
 
 //compute the current density flowing out of
 //conductor 1 to get the final current
 double current_density(double E){
   find_trans(E);
-  return ( P_TRANS_PROB[0] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1]))
-         + P_TRANS_PROB[1] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2]))) * M_1_PI * 0.5;
+  return M_1_PI * 0.5 * 
+        ( P_TRANS_PROB[0] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1]))
+        + P_TRANS_PROB[1] * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2])));
+}
+
+//compute the noise density of the current
+//flowing out of conductor 1
+double noise_density(double E){
+  find_trans(E);
+  return M_1_PI * 0.5 *
+       ( P_TRANS_PROB[0] * (fermi_dirac(E - P_BIAS[0]) * (1 - fermi_dirac(E - P_BIAS[1]))
+                         +  fermi_dirac(E - P_BIAS[1]) * (1 - fermi_dirac(E - P_BIAS[0])))
+       + P_TRANS_PROB[1] * (fermi_dirac(E - P_BIAS[0]) * (1 - fermi_dirac(E - P_BIAS[2])) +
+                         +  fermi_dirac(E - P_BIAS[2]) * (1 - fermi_dirac(E - P_BIAS[0])))
+       - P_TRANS_PROB[0] * P_TRANS_PROB[0] 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1])) 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1])) 
+       - P_TRANS_PROB[0] * P_TRANS_PROB[1] 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1])) 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2])) 
+       - P_TRANS_PROB[1] * P_TRANS_PROB[0] 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2])) 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[1])) 
+       - P_TRANS_PROB[1] * P_TRANS_PROB[1] 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2])) 
+       * (fermi_dirac(E - P_BIAS[0]) - fermi_dirac(E - P_BIAS[2]))); 
 }
 
 //total current flowing into 3
@@ -99,6 +124,15 @@ double total_current(){
   max = x + t;
   return integrate(min, max, current_density);
 }
+//total current noise on conductor 1
+double total_noise(){
+  double x, t, min, max;
+  x = P_BIAS[0];
+  t = 2 * P_T[0];
+  min = x - t;
+  max = x + t;
+  return integrate(min, max, noise_density);
+}
 
 //procedure to find chemical potential of the
 //bath conductor by root finding with secant
@@ -117,46 +151,71 @@ int main(int argc, char** argv){
   
   double t[3] = {1.0,1.0,1.0}; 
   double mu[3] = {0.0,0.0,0.0};
-  double v[3] = {1.0,1.0,0.0};
+  double v[3] = {1.0,1.0,0.4};
   double delta = 0.6;
-  double temp = 0.01;
+  double temp = 0.025;
   printf("setting up\n");
   setup(t, mu, v, delta, temp);
 
+  enum {
+    MU_VS_VOLT_V,
+    CURR_VS_VOLT_V,
+    NOISE_VS_VOLT_V,
+    MU_VS_VOLT_T,
+    CURR_VS_VOLT_T,
+    NOISE_VS_VOLT_T
+  };
+
   pyplot_import("script.py");
-  pyplot_figure(1);
+
+  pyplot_figure(MU_VS_VOLT_V);
   pyplot_xlabel("$V$");
   pyplot_ylabel("$\\mu$");
-  pyplot_figure(2);
+
+  pyplot_figure(CURR_VS_VOLT_V);
   pyplot_xlabel("$V$");
-  pyplot_ylabel("$I$");
-  pyplot_figure(3);
-  pyplot_xlabel("$V$");
-  pyplot_ylabel("$\\mu$");
-  pyplot_figure(4);
-  pyplot_xlabel("$V$");
-  pyplot_ylabel("$I$");
+  pyplot_ylabel("$I_1$");
   
+  pyplot_figure(NOISE_VS_VOLT_V);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$S_{11}$");
+
+  pyplot_figure(MU_VS_VOLT_T);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$\\mu$");
+
+  pyplot_figure(CURR_VS_VOLT_T);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$I_1$");
+
+  pyplot_figure(NOISE_VS_VOLT_T);
+  pyplot_xlabel("$V$");
+  pyplot_ylabel("$S_{11}$");
+
   plot_t plot_mu = create_plot();
   plot_t plot_rest = create_plot();
   const char* colors[5] = {"blue", "red", "green", "yellow", "purple"};
   char label[100];
 
   printf("doing various v\n");
-  double v_cases[5] = {0.0, 0.1, 0.5, 1.0, 5.0};
+  temp = 0.025;
+  double v_cases[5] = {0.0, 0.2, 0.4, 0.6, 0.8};
   for(int i=0;i<5;i++){
     v[2] = v_cases[i];
     setup(t, mu, v, delta, temp);
-    pyplot_figure(1);
-    sample_plot(plot_mu, 0, 2, find_bias);
     sprintf(label,"%.1f",v_cases[i]);
+
+    pyplot_figure(MU_VS_VOLT_V);
+    sample_plot(plot_mu, 0, 2, find_bias);
     pyplot_plot(plot_mu,colors[i],label);
-    pyplot_figure(2);
+
     int np = get_plot_points(plot_mu);
     double *x = get_plot_x(plot_mu);
     double *bias = get_plot_y(plot_mu);
     double *y = get_plot_y(plot_rest);
     set_plot_x(plot_rest, x, np);
+
+    pyplot_figure(CURR_VS_VOLT_V);
     for(int j=0;j<np;j++){
       P_BIAS[0] = P_MU[0] + 0.5 * x[j];
       P_BIAS[1] = P_MU[1] - 0.5 * x[j];
@@ -164,24 +223,48 @@ int main(int argc, char** argv){
       y[j] = total_current();
     }
     pyplot_plot(plot_rest,colors[i],label);
-  }
+
+    pyplot_figure(NOISE_VS_VOLT_V);
+    for(int j=0;j<np;j++){
+      P_BIAS[0] = P_MU[0] + 0.5 * x[j];
+      P_BIAS[1] = P_MU[1] - 0.5 * x[j];
+      P_BIAS[2] = bias[j];
+      y[j] = total_noise();
+    }
+    pyplot_plot(plot_rest,colors[i],label);
   
+  }
+
+  pyplot_figure(MU_VS_VOLT_V);
+  pyplot_legend("$v_3$");
+  pyplot_savefig("mu_v.png");
+  pyplot_figure(CURR_VS_VOLT_V);
+  pyplot_legend("$v_3$");
+  pyplot_savefig("curr_v.png");
+  pyplot_figure(NOISE_VS_VOLT_V);
+  pyplot_legend("$v_3$");
+  pyplot_savefig("noise_v.png");
+  
+
   printf("doing various T\n");
-  v[2] = 0.1;
-  double temp_cases[5] = {0.001, 0.01, 0.1, 1.0, 10.0};
+  v[2] = 0.4;
+  double temp_cases[5] = {0.001, 0.005, 0.025, 0.125, 0.625};
   for(int i=0;i<5;i++){
     temp = temp_cases[i];
     setup(t, mu, v, delta, temp);
-    pyplot_figure(3);
+    sprintf(label,"%.3f",temp_cases[i]);
+
+    pyplot_figure(MU_VS_VOLT_T);
     sample_plot(plot_mu, 0, 2, find_bias);
-    sprintf(label,"%.1f",temp_cases[i]);
     pyplot_plot(plot_mu,colors[i],label);
-    pyplot_figure(4);
+
     int np = get_plot_points(plot_mu);
     double *x = get_plot_x(plot_mu);
     double *bias = get_plot_y(plot_mu);
     double *y = get_plot_y(plot_rest);
     set_plot_x(plot_rest, x, np);
+
+    pyplot_figure(CURR_VS_VOLT_T);
     for(int j=0;j<np;j++){
       P_BIAS[0] = P_MU[0] + 0.5 * x[j];
       P_BIAS[1] = P_MU[1] - 0.5 * x[j];
@@ -189,20 +272,28 @@ int main(int argc, char** argv){
       y[j] = total_current();
     }
     pyplot_plot(plot_rest,colors[i],label);
+
+    pyplot_figure(NOISE_VS_VOLT_T);
+    for(int j=0;j<np;j++){
+      P_BIAS[0] = P_MU[0] + 0.5 * x[j];
+      P_BIAS[1] = P_MU[1] - 0.5 * x[j];
+      P_BIAS[2] = bias[j];
+      y[j] = total_noise();
+    }
+    pyplot_plot(plot_rest,colors[i],label);
+ 
   }
-  pyplot_figure(1);
-  pyplot_legend("$v_3$");
-  pyplot_savefig("mu_versus_voltage_varying_v.png");
-  pyplot_figure(2);
-  pyplot_legend("$v_3$");
-  pyplot_savefig("curr_versus_voltave_varying_v.png");
-  
-  pyplot_figure(3);
+
+  pyplot_figure(MU_VS_VOLT_T);
   pyplot_legend("$T$");
-  pyplot_savefig("mu_versus_voltage_varying_T.png");
-  pyplot_figure(4);
+  pyplot_savefig("mu_t.png");
+  pyplot_figure(CURR_VS_VOLT_T);
   pyplot_legend("$T$");
-  pyplot_savefig("curr_versus_voltave_varying_T.png");
+  pyplot_savefig("curr_t.png");
+  pyplot_figure(NOISE_VS_VOLT_T);
+  pyplot_legend("$T$");
+  pyplot_savefig("noise_t.png");
+
   delete_plot(plot_mu);
   delete_plot(plot_rest);
   pyplot_close();
