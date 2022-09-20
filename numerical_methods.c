@@ -58,12 +58,6 @@ double find_root(double a, double b, double (*func)(double)){
   return b;
 }
 
-struct plot_s {
-  int n_points;
-  double x[MAX_REC];
-  double y[MAX_REC];
-};
-
 FILE *fptr;
 
 void pyplot_import(const char* filename){
@@ -83,18 +77,6 @@ void pyplot_savefig(const char* filename){
   fprintf(fptr,"plt.savefig(\"%s\",dpi=150)\n",filename);
 }
 
-void pyplot_plot(plot_t plot, const char* color,const char* label){
-  fprintf(fptr,"plt.plot([");
-  for(int i=0;i<plot->n_points;i++){
-    fprintf(fptr,"%e,",plot->x[i]);
-  }
-  fprintf(fptr,"],[");
-  for(int i=0;i<plot->n_points;i++){
-    fprintf(fptr,"%e,",plot->y[i]);
-  }
-  fprintf(fptr,"],c=\"%s\",label=\"%s\")\n",color,label);
-}
-
 void pyplot_xlabel(const char* label){
   fprintf(fptr,"plt.xlabel(\"%s\")\n",label);
 }
@@ -107,16 +89,23 @@ void pyplot_legend(const char* title){
   fprintf(fptr,"plt.legend(title=\"%s\")\n",title);
 }
 
-plot_t create_plot(){
-  struct plot_s *ptr = malloc(sizeof(struct plot_s));
+struct plot2d_s {
+  int n_points;
+  double x[MAX_REC];
+  double y[MAX_REC];
+};
+
+
+plot2d_t create_plot2d(){
+  struct plot2d_s *ptr = malloc(sizeof(struct plot2d_s));
   return ptr;
 }
 
-void delete_plot(plot_t plot){
+void delete_plot2d(plot2d_t plot){
   free(plot);
 }
 
-void sample_plot(plot_t plot, double a, double b, double (*func)(double)){
+void sample_plot2d(plot2d_t plot, double a, double b, double (*func)(double)){
   plot->n_points = N_INITIAL;
   for(int i=0;i<N_INITIAL;i++){
     plot->x[i] = a + (double)i * (b - a) / ((double)N_INITIAL - 1); 
@@ -150,24 +139,36 @@ void sample_plot(plot_t plot, double a, double b, double (*func)(double)){
   }
 }
 
-int get_plot_points(plot_t plot){
+int get_plot2d_points(plot2d_t plot){
   return plot->n_points;
 }
 
-double* get_plot_x(plot_t plot){
+double* get_plot2d_x(plot2d_t plot){
   return plot->x;
 }
 
-void set_plot_x(plot_t plot, const double *x, int n_points){
+void set_plot2d_x(plot2d_t plot, const double *x, int n_points){
   plot->n_points = n_points;
   memcpy(plot->x, x, n_points * sizeof(double));
 }
-double* get_plot_y(plot_t plot){
+double* get_plot2d_y(plot2d_t plot){
   return plot->y;
 }
 
-void set_plot_y(plot_t plot, const double *y){
+void set_plot2d_y(plot2d_t plot, const double *y){
   memcpy(plot->y, y, plot->n_points);
+}
+
+void pyplot_plot(plot2d_t plot, const char* args){
+  fprintf(fptr,"plt.plot([");
+  for(int i=0;i<plot->n_points;i++){
+    fprintf(fptr,"%e,",plot->x[i]);
+  }
+  fprintf(fptr,"],[");
+  for(int i=0;i<plot->n_points;i++){
+    fprintf(fptr,"%e,",plot->y[i]);
+  }
+  fprintf(fptr,"],%s)\n",args);
 }
 
 

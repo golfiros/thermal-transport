@@ -13,17 +13,6 @@ double P_V[3]; //impurity couplings
 double DELTA; //impurity site energy
 double BETA; //inverse temperature
 
-void setup(double *t, double *mu, double *v, double delta, double temp){
-  for(int i=0;i<3;i++){
-    P_T[i] = *t;
-    P_INV_T[i] = 1 / *(t++);
-    P_MU[i] = *(mu++);
-    P_V[i] = *(v++);
-  }
-  DELTA = delta;
-  BETA = 1 / temp;
-}
-
 double P_BIAS[3]; //full conductor chemical potentials
 complex double P_MOMENTA[3]; //momentum exponentials
 double P_TRANS_PROB[3 * (3 - 1) / 2]; //transmission probabilities
@@ -34,9 +23,9 @@ void find_momenta(double E){
   double x;
   for(int i=0;i<3;i++){
     x = 0.5 * (P_BIAS[i] - E) * P_INV_T[i];
-    if (x > 1) { P_MOMENTA[i] = x - sqrt(x * x - 1); continue; }
-    if (x < -1) { P_MOMENTA[i] = x + sqrt(x * x - 1); continue; }
-    P_MOMENTA[i] = x + I * sqrt(1 - x * x);
+    if (x > 1.0) { P_MOMENTA[i] = x - sqrt(x * x - 1.0); continue; }
+    if (x < -1.0) { P_MOMENTA[i] = x + sqrt(x * x - 1.0); continue; }
+    P_MOMENTA[i] = x + I * sqrt(1.0 - x * x);
   }
 }
 
@@ -48,19 +37,19 @@ void find_trans(double E){
   for(int i=0;i<3;i++){
     gf += P_V[i] * P_V[i] * P_MOMENTA[i] * P_INV_T[i]; //add contributions to the denominator
   }
-  double den = 1 / (gf * conj(gf));
+  double den = 1.0 / (gf * conj(gf));
   
   double *out = P_TRANS_PROB;
   for(int i=0;i<3-1;i++){
     for(int j=i+1;j<3;j++){
-      *(out++) = 4 * P_V[i] * P_V[i] * P_V[j] * P_V[j] * P_INV_T[i] * P_INV_T[j] 
+      *(out++) = 4.0 * P_V[i] * P_V[i] * P_V[j] * P_V[j] * P_INV_T[i] * P_INV_T[j] 
            * den * cimag(P_MOMENTA[i]) * cimag(P_MOMENTA[j]);
     }
   }
 }
 
 double fermi_dirac(double E){
-  return 1 / (exp(BETA * E) + 1);
+  return 1.0 / (exp(BETA * E) + 1.0);
 }
 
 //compute excess current density flowing into the 
@@ -108,7 +97,7 @@ double noise_density(double E){
 double excess_current(double mu){
   double t, min, max;
   P_BIAS[2] = mu;
-  t = 2 * P_T[2];
+  t = 2.0 * P_T[2];
   min = mu - t;
   max = mu + t;
   double out = integrate(min, max, excess_density);
@@ -154,9 +143,16 @@ int main(int argc, char** argv){
   double v[3] = {1.0,1.0,0.4};
   double delta = 0.6;
   double temp = 0.025;
-  printf("setting up\n");
-  setup(t, mu, v, delta, temp);
 
+  for(int i=0;i<3;i++){
+    P_T[i] = t[i];
+    P_INV_T[i] = 1 / t[i];
+    P_MU[i] = mu[i];
+    P_V[i] = v[i];
+  }
+  DELTA = delta;
+  BETA = 1 / temp;
+  
   enum {
     MU_VS_VOLT_V,
     CURR_VS_VOLT_V,
@@ -192,28 +188,27 @@ int main(int argc, char** argv){
   pyplot_xlabel("$V$");
   pyplot_ylabel("$S_{11}$");
 
-  plot_t plot_mu = create_plot();
-  plot_t plot_rest = create_plot();
+  plot2d_t plot_mu = create_plot2d();
+  plot2d_t plot_rest = create_plot2d();
   const char* colors[5] = {"blue", "red", "green", "yellow", "purple"};
-  char label[100];
+  char args[100];
 
   printf("doing various v\n");
-  temp = 0.025;
+  BETA = 1 / 0.025;
   double v_cases[5] = {0.0, 0.2, 0.4, 0.6, 0.8};
   for(int i=0;i<5;i++){
-    v[2] = v_cases[i];
-    setup(t, mu, v, delta, temp);
-    sprintf(label,"%.1f",v_cases[i]);
+    P_V[2] = v_cases[i];
+    sprintf(args,"c=\"%s\",label=\"%.1f\"",colors[i],v_cases[i]);
 
     pyplot_figure(MU_VS_VOLT_V);
-    sample_plot(plot_mu, 0, 2, find_bias);
-    pyplot_plot(plot_mu,colors[i],label);
+    sample_plot2d(plot_mu, 0.0, 2.0, find_bias);
+    pyplot_plot(plot_mu,args);
 
-    int np = get_plot_points(plot_mu);
-    double *x = get_plot_x(plot_mu);
-    double *bias = get_plot_y(plot_mu);
-    double *y = get_plot_y(plot_rest);
-    set_plot_x(plot_rest, x, np);
+    int np = get_plot2d_points(plot_mu);
+    double *x = get_plot2d_x(plot_mu);
+    double *bias = get_plot2d_y(plot_mu);
+    double *y = get_plot2d_y(plot_rest);
+    set_plot2d_x(plot_rest, x, np);
 
     pyplot_figure(CURR_VS_VOLT_V);
     for(int j=0;j<np;j++){
@@ -222,7 +217,7 @@ int main(int argc, char** argv){
       P_BIAS[2] = bias[j];
       y[j] = total_current();
     }
-    pyplot_plot(plot_rest,colors[i],label);
+    pyplot_plot(plot_rest,args);
 
     pyplot_figure(NOISE_VS_VOLT_V);
     for(int j=0;j<np;j++){
@@ -231,8 +226,7 @@ int main(int argc, char** argv){
       P_BIAS[2] = bias[j];
       y[j] = total_noise();
     }
-    pyplot_plot(plot_rest,colors[i],label);
-  
+    pyplot_plot(plot_rest,args);
   }
 
   pyplot_figure(MU_VS_VOLT_V);
@@ -247,22 +241,21 @@ int main(int argc, char** argv){
   
 
   printf("doing various T\n");
-  v[2] = 0.4;
+  P_V[2] = 0.4;
   double temp_cases[5] = {0.001, 0.005, 0.025, 0.125, 0.625};
   for(int i=0;i<5;i++){
-    temp = temp_cases[i];
-    setup(t, mu, v, delta, temp);
-    sprintf(label,"%.3f",temp_cases[i]);
+    BETA = 1 / temp_cases[i];
+    sprintf(args,"c=\"%s\",label=\"%.3f\"",colors[i],temp_cases[i]);
 
     pyplot_figure(MU_VS_VOLT_T);
-    sample_plot(plot_mu, 0, 2, find_bias);
-    pyplot_plot(plot_mu,colors[i],label);
+    sample_plot2d(plot_mu, 0, 2, find_bias);
+    pyplot_plot(plot_mu,args);
 
-    int np = get_plot_points(plot_mu);
-    double *x = get_plot_x(plot_mu);
-    double *bias = get_plot_y(plot_mu);
-    double *y = get_plot_y(plot_rest);
-    set_plot_x(plot_rest, x, np);
+    int np = get_plot2d_points(plot_mu);
+    double *x = get_plot2d_x(plot_mu);
+    double *bias = get_plot2d_y(plot_mu);
+    double *y = get_plot2d_y(plot_rest);
+    set_plot2d_x(plot_rest, x, np);
 
     pyplot_figure(CURR_VS_VOLT_T);
     for(int j=0;j<np;j++){
@@ -271,7 +264,7 @@ int main(int argc, char** argv){
       P_BIAS[2] = bias[j];
       y[j] = total_current();
     }
-    pyplot_plot(plot_rest,colors[i],label);
+    pyplot_plot(plot_rest,args);
 
     pyplot_figure(NOISE_VS_VOLT_T);
     for(int j=0;j<np;j++){
@@ -280,7 +273,7 @@ int main(int argc, char** argv){
       P_BIAS[2] = bias[j];
       y[j] = total_noise();
     }
-    pyplot_plot(plot_rest,colors[i],label);
+    pyplot_plot(plot_rest,args);
  
   }
 
@@ -294,8 +287,8 @@ int main(int argc, char** argv){
   pyplot_legend("$T$");
   pyplot_savefig("noise_t.png");
 
-  delete_plot(plot_mu);
-  delete_plot(plot_rest);
+  delete_plot2d(plot_mu);
+  delete_plot2d(plot_rest);
   pyplot_close();
 
   return 0;
