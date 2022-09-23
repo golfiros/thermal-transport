@@ -4,6 +4,8 @@
 #include <string.h>
 #include "numerical_methods.h"
 
+#define N_MAX_DEPTH N_INITIAL << MAX_REC_DEPTH
+
 int num_error = 0;
 void reset_error_numerics(){
   num_error = 0;
@@ -13,54 +15,122 @@ int get_error_numerics(){
 }
 
 double integrate(double a, double b, double (*func)(double)){
-  if (a == b) { return 0; }
-  double INTEGRAL_STACK[2 * MAX_REC];
-  INTEGRAL_STACK[0] = a;
-  INTEGRAL_STACK[1] = b;
+  if (fabs(a - b) < TOL) { return 0; }
+  int depths[N_MAX_DEPTH] = { 0 };
+  double stack[N_MAX_DEPTH][4];
   double tol = TOL / fabs(b - a);
   int sp;
   for(sp = 0; sp < N_INITIAL; sp++){
-    INTEGRAL_STACK[2 * sp] = a + (b - a) * (double)sp / N_INITIAL;
-    INTEGRAL_STACK[2 * sp + 1] = a + (b - a) * (double)(sp + 1) / N_INITIAL;
+    stack[sp][0] = a + (b - a) * (double)sp / N_INITIAL;
+    stack[sp][1] = a + (b - a) * (double)(sp + 1) / N_INITIAL;
+    stack[sp][2] = func(stack[sp][0]);
+    stack[sp][3] = func(stack[sp][1]);
   }
   double integral = 0.0;
-  double i1, i2, m;
+  double m;
+  double fa, fb, fm;
+  double i1, i2;
   while(sp > 0){
-    b = INTEGRAL_STACK[2 * --sp + 1];
-    a = INTEGRAL_STACK[2 * sp];
-    i1 = 0.5 * (b - a) * ((*func)(a) + (*func)(b));
+    a = stack[--sp][0];
+    b = stack[sp][1];
+    fb = stack[sp][3];
+    fa = stack[sp][2];
     m = 0.5 * (a + b);
-    i2 = 0.25 * (b - a) * ((*func)(a) + 2 * (*func)(m) + (*func)(b));
-    if(fabs(i1-i2) < 3 * fabs(b - a) * tol){ integral += i2; continue; }
-    else if(sp > MAX_REC - 2){ integral += i2; num_error |= ERROR_CONVERGENCE; continue; }
-    INTEGRAL_STACK[2 * sp] = a;
-    INTEGRAL_STACK[2 * sp++ + 1] = m;
-    INTEGRAL_STACK[2 * sp] = m;
-    INTEGRAL_STACK[2 * sp++ + 1] = b;
+    fm = func(m);
+    i1 = 0.5 * (b - a) * (fa + fb);
+    i2 = 0.25 * (b - a) * (fa + 2.0 * fm + fb);
+    if(fabs(i1-i2) < 3.0 * fabs(b - a) * tol){
+      integral += i2;
+      depths[sp] = 0;
+      continue;
+    }
+    else if(depths[sp] >= MAX_REC_DEPTH){
+      integral += i2;
+      depths[sp] = 0;
+      num_error |= ERROR_CONVERGENCE; 
+      continue;
+    }
+    depths[sp]++;
+    //stack[sp][0] = a;
+    stack[sp][1] = m;
+    //stack[sp][2] = fa;
+    stack[sp++][3] = fm;
+    depths[sp] = depths[sp - 1];
+    stack[sp][0] = m;
+    stack[sp][1] = b;
+    stack[sp][2] = fm;
+    stack[sp++][3] = fb;
   }
   return integral;
 }
 
 double find_root(double a, double b, double (*func)(double)){
-  double c; //intermediate guess
-  double fa, fb, fc; //function evaluations
-  int np = 0; //iteration counter
-  fa = (*func)(a);
-  fb = (*func)(b);
+  int i = 0;
+  double c, d, e;
+  double fa, fb, fc;
+  fa = func(a);
+  fb = func(b);
   if(fa * fb > 0){ num_error |= ERROR_INVALID; return b; }
-  while(fabs(a - b) > TOL && np++ < MAX_REC){
-    c = (a + b) * 0.5;
-    fc = (*func)(c);
-    if(fa * fc > 0){ a = c; fa = fc; }
-    else { b = c; fb = fc; }
+  c = a;
+  fc = fa;
+  d = b - c;
+  e = d;
+  while(fabs(fb) > TOL && i++ < N_MAX_DEPTH){
+    if(fa * fb > 0){
+      a = c; fa = fc;
+      d = b - c; e = d;
+    }
+    if(fabs(fa) < fabs(fb)){
+      c = b; b = a; a = c;
+      fc = fb; fb = fa; fa = fc;
+    }
+    double m = 0.5 * (a - b);
+    double tol = TOL * (fabs(b) + 1 + fabs(fabs(b) - 1.0));
+    if(fabs(m) < tol || fb < TOL){ break; }
+    if(fabs(e) < tol || fabs(fc) < fabs(fb)){
+      d = m;
+      e = m;
+    }
+    else{
+      double p, q, r, s;
+      s = fb / fc;
+      if(fabs(a - c) < TOL){
+        p = 2.0 * m * s;
+        q = 1.0 - s;
+      }
+      else{
+        q = fc / fa;
+        r = fb / fa;
+        p = s * (2.0 * m * q * (q - r) - (b - c) * (r - 1.0));
+        q = (q - 1.0) * (r - 1.0) * (s - 1.0);
+      }
+      if(p > 0){ q = -q; }
+      else{ p = -p; }
+      if(2.0 * p < 3.0 * m * q - fabs(tol * q) && p < fabs(0.5 * e * q)){
+        e = d;
+        d = p / q;
+      }
+      else{
+        d = m;
+        e = m;
+      }
+    }
+    c = b;
+    fc = fb;
+    if(fabs(d) > tol){
+      b = b + d;
+    }
+    else{
+      b = b - copysign(tol, b - a);
+    }
+    fb = func(b);
   }
-  if(np > MAX_REC){ num_error |= ERROR_CONVERGENCE; }
   return b;
 }
 
 FILE *fptr;
 
-void pyplot_import(const char* filename){
+void pyplot_open(const char* filename){
   fptr = fopen(filename,"w");
   fprintf(fptr,"import matplotlib.pyplot as plt\n");
 }
@@ -91,8 +161,8 @@ void pyplot_legend(const char* title){
 
 struct plot2d_s {
   int n_points;
-  double x[MAX_REC];
-  double y[MAX_REC];
+  double x[N_MAX_DEPTH];
+  double y[N_MAX_DEPTH];
 };
 
 
@@ -105,37 +175,69 @@ void delete_plot2d(plot2d_t plot){
   free(plot);
 }
 
-void sample_plot2d(plot2d_t plot, double a, double b, double (*func)(double)){
-  plot->n_points = N_INITIAL;
-  for(int i=0;i<N_INITIAL;i++){
-    plot->x[i] = a + (double)i * (b - a) / ((double)N_INITIAL - 1); 
-    plot->y[i] = (*func)(plot->x[i]);
+int comp_plot2d(const void *a, const void *b){
+  const double *la = a;
+  const double *lb = b;
+  if(*la >= *lb){ return 1; }
+  else{ return -1; }
+}
+
+void function_plot2d(plot2d_t plot, double a, double b, double (*func)(double)){
+  if (fabs(a - b) < TOL) { return; }
+  int depths[N_MAX_DEPTH] = { 0 };
+  double intervals[N_MAX_DEPTH][4];
+  double tol = 10000.0 * TOL / fabs(b - a); //we're way more lenient with plot precision
+  int np;
+  for(np = 0; np < N_INITIAL - 1; np++){
+    intervals[np][0] = a + (b - a) * (double)np / (N_INITIAL - 1);
+    intervals[np][1] = a + (b - a) * (double)(np + 1) / (N_INITIAL - 1);
+    intervals[np][2] = func(intervals[np][0]);
+    intervals[np][3] = func(intervals[np][1]);
   }
-  for(int i=0;i<plot->n_points-2 && plot->n_points < MAX_REC;i++){
-    double *x = plot->x + i;
-    double *y = plot->y + i;
-    double ymax = y[0], ymin = y[0];
-    if(y[1] > ymax) { ymax = y[1]; }
-    if(y[2] > ymax) { ymax = y[2]; }
-    if(y[1] < ymin) { ymin = y[1]; }
-    if(y[2] < ymin) { ymin = y[2]; }
-    double dx = x[2] - x[0];
-    double dy = ymax - ymin;
-    double area = fabs(x[0] * (y[1] - y[2]) + 
-                       x[1] * (y[2] - y[0]) +
-                       x[2] * (y[0] - y[1]));
-    if(area > 0.5 * dx * dy){
-      memmove(x + 2, x, (plot->n_points - i) * sizeof(double));
-      memmove(y + 2, y, (plot->n_points - i) * sizeof(double));
-      x[2] = x[1];
-      y[2] = y[1];
-      x[1] = 0.5 * (x[0] + x[2]);
-      x[3] = 0.5 * (x[2] + x[4]);
-      y[1] = (*func)(x[1]);
-      y[3] = (*func)(x[3]);
-      plot->n_points += 2;
-      i--;
+  intervals[N_INITIAL - 1][0] = intervals[N_INITIAL - 1][1] = b;
+  intervals[N_INITIAL - 1][2] = intervals[N_INITIAL - 1][3] = func(b);
+  np++;
+
+  double m;
+  double fa, fb, fm;
+  double i1, i2;
+  int j = 0;
+  while(j < np){ //go through each interval
+    a = intervals[j][0];
+    b = intervals[j][1];
+    fa = intervals[j][2];
+    fb = intervals[j][3];
+    m = 0.5 * (a + b);
+    fm = func(m);
+    i1 = 0.5 * (b - a) * (fa + fb);
+    i2 = 0.25 * (b - a) * (fa + 2.0 * fm + fb);
+    if(fabs(i1-i2) <= 3.0 * fabs(b - a) * tol){
+      j++;
+      continue;
     }
+    else if(depths[j] >= MAX_REC_DEPTH){
+      j++;
+      num_error |= ERROR_CONVERGENCE; 
+      continue;
+    }
+    depths[j]++;
+    //intervals[j][0] = a;
+    intervals[j][1] = m;
+    //intervals[j][2] = fa;
+    intervals[j][3] = fm;
+    depths[np] = depths[j];
+    intervals[np][0] = m;
+    intervals[np][1] = b;
+    intervals[np][2] = fm;
+    intervals[np][3] = fb;
+    np++;
+  }
+  //for line plots this needs to be sorted, so let's do that
+  qsort(intervals, np, sizeof(*intervals), comp_plot2d);
+  plot->n_points = np;
+  for(j=0;j<np;j++){
+    plot->x[j] = intervals[j][0];
+    plot->y[j] = intervals[j][2];
   }
 }
 

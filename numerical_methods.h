@@ -1,6 +1,6 @@
-#define TOL 0.0001 //absolute numerical tolerance for calculations
-#define MAX_REC 2048 //max recursions for methods
+#define TOL 1.0e-10 //absolute numerical tolerance for calculations
 #define N_INITIAL 16 //initial even subdivisions
+#define MAX_REC_DEPTH 8 //max recursions for methods
 
 //simple error handling with global variable
 
@@ -14,13 +14,15 @@ void reset_error_numerics();
 int get_error_numerics();
 
 //numerical integration by adaptive quadrature
+//taken from https://www.math.usm.edu/lambers/mat460/fall09/lecture30.pdf
 double integrate(double a, double b, double (*func)(double));
 
-//root finding by bisection 
+//root finding by improved Brent's method
+//taken from https://blogs.mathworks.com/cleve/2015/10/26/zeroin-part-2-brents-version/
 double find_root(double a, double b, double (*func)(double));
 
 //opens and closes python file for pyplot
-void pyplot_import(const char* filename);
+void pyplot_open(const char* filename);
 
 void pyplot_close();
 
@@ -42,7 +44,9 @@ plot2d_t create_plot2d();
 
 void delete_plot2d(plot2d_t plot);
 
-void sample_plot2d(plot2d_t plot, double a, double b, double (*func)(double));
+//adaptive sample plotting
+//roughly based on https://yacas.readthedocs.io/en/latest/book_of_algorithms/basic.html
+void function_plot2d(plot2d_t plot, double a, double b, double (*func)(double));
 
 int get_plot2d_points(plot2d_t plot);
 
