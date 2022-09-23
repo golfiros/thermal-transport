@@ -1,5 +1,5 @@
 #define TOL 1.0e-10 //absolute numerical tolerance for calculations
-#define N_INITIAL 16 //initial even subdivisions
+#define N_INITIAL (1 << 4) //initial even subdivisions
 #define MAX_REC_DEPTH 8 //max recursions for methods
 
 //simple error handling with global variable
@@ -62,3 +62,11 @@ void pyplot_plot(plot2d_t plot, const char* args);
 
 //pyplot 3d plotting
 typedef struct plot3d_s *plot3d_t;
+
+plot3d_t create_plot3d();
+
+void delete_plot3d(plot3d_t plot);
+
+void function_plot3d(plot3d_t plot, double xa, double xb, double ya, double yb, double (*func)(double,double));
+
+void pyplot_tricountourf(plot3d_t plot, const char* args);

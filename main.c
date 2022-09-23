@@ -132,11 +132,12 @@ double find_bias(double voltage) {
   return find_root(P_BIAS[0], P_BIAS[1], excess_current);
 }
 
-double f(double x){
-  return x*x*x*x*x;
+double f(double x, double y){
+  return 1.0 + exp(10.0 * (sqrt(x * x + y * y) - 3.0));
 }
 
 int main(int argc, char** argv){
+  /*
   //this program evaluates the current between two probes 
   //coupled to an impurity site, which is then coupled
   //to a third probe that functions as a bath, making the
@@ -294,12 +295,14 @@ int main(int argc, char** argv){
   delete_plot2d(plot_mu);
   delete_plot2d(plot_rest);
   pyplot_close();
-  
-  /*
+  */
+
   pyplot_open("script.py");
+  plot3d_t plot = create_plot3d();
+  function_plot3d(plot,0.0,5.0,0.0,5.0,f);
+  pyplot_tricountourf(plot, "");
+  delete_plot3d(plot);
   pyplot_close();
 
-  printf("%.20f",integrate(0,1,f));
-  */
   return 0;
 }
